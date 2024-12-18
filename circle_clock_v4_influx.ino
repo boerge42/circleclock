@@ -20,7 +20,7 @@
  * * cyclic measurement of battery voltage
  * * cyclic activation wlan
  *   * time synchronization
- *   * write collected voltage measurements into an influxDB
+ *   * ifdef INFLUX --> write collected voltage measurements into an influxDB
  *   * shutdown of wlan hardware
  * 
  * 
@@ -36,24 +36,25 @@
  * * batterylevel
  * * time is sync with a ntp-server
  * 
- * 
- * ToDo:
- * -----
- * * make influxDB stuff switchable
- * 
- * 
+ *
  * =========
  * Have fun! 
  * 
  * ****************************************************************************************
 */
 
+// infuxdb support
+//#define INFLUX
+
 #include <WiFi.h>
 #include <ezTime.h>
 #include <Arduino_GFX_Library.h>
-#include <InfluxDbClient.h>
 #include "SensorQMI8658.hpp"
 #include "astro.h"
+
+#ifdef INFLUX
+#include <InfluxDbClient.h>
+#endif
 
 // display pins on esp
 #define TFT_CS 9
@@ -121,9 +122,10 @@ SensorQMI8658 qmi;
 #define PI  3.1415926536
 
 // WiFi
-#define WIFI_SSID     "yyyyyyyyyyy"
-#define WIFI_PASSWORD "xxxxxxxxxxx"
+#define WIFI_SSID     "xxxxxx"
+#define WIFI_PASSWORD "yyyyyy"
 
+#ifdef INFLUX
 // InfluxDB
 #define INFLUX_URL    "http://nanotuxedo:8086/"
 #define INFLUX_DB     "circleclock"
@@ -145,7 +147,7 @@ SensorQMI8658 qmi;
 //~ #define NTP_SERVER2  "time.nis.gov"
 #define NTP_SERVER1  "0.de.pool.ntp.org"
 #define NTP_SERVER2  "1.de.pool.ntp.org"
-
+#endif
 
 // ezTime & time zone
 #define MY_TIME_ZONE "Europe/Berlin"
@@ -157,22 +159,26 @@ static int16_t w, h, center;
 
 // task cycles
 #define TASK_DISPLAY_BATTERY_LEVEL  60000       // in ms --> 60s
-#define TASK_INFLUX_INSERT          10000       // in ms --> 10s
 #define TASK_CONNECTION_WIFI        500         // in ms --> 500ms
-#define TASK_IMU_READ		        250         // in ms --> 250ms
+#define TASK_IMU_READ		            250         // in ms --> 250ms
 #define TFT_BACKLIGHT_OFF_INTERVAL  60000       // in ms --> 60s
 
+#ifdef INFLUX
+#define TASK_INFLUX_INSERT          10000       // in ms --> 10s
+#endif
+
+#ifdef INFLUX
 // InfluxDB
 InfluxDBClient client(INFLUX_URL, INFLUX_DB);
 Point sensorStatus("battery");
-
 // parameter influx-batch
 #define WRITE_PRECISION             WritePrecision::S
 #define MAX_BATCH_SIZE              70                    // 6 Werte in der Minute; alle 10min flush (plus etwas Puffer...)
 #define WRITE_BUFFER_SIZE           (MAX_BATCH_SIZE * 2)
 #define INFLUX_FLUSH_INTERVAL       660                   // in Sekunden -> 10min --> sollte groesser als WIFI_SYNC_INTERVAL sein
+#endif
 
-#define WIFI_SYNC_INTERVAL          600000                // in ms --> 10min
+#define WIFI_SYNC_INTERVAL          3600000               // in ms --> 1h
 #define MAX_CONNECTION_ATTEMPTS     50                    // max. 50 Versuche (WiFi-Connect)
 
 long last_wifi_connection = 0;
@@ -205,8 +211,10 @@ void connectionWifi()
             Serial.println("...connected");
             Serial.println(connection_attempts);
             connection_attempts = 0;                        // wifi-connect :-)
+            #ifdef INFLUX
             timeSync(TZ_INFO, NTP_SERVER1, NTP_SERVER2);    // influx timesync
             client.flushBuffer();                           // influx write batch to db 
+            #endif
             events();										// sync. ezTime
             last_wifi_connection = millis();
             // aktuellen AP merken
@@ -254,10 +262,11 @@ int get_moving_avg(int newValue)
 	currentIndex = (currentIndex + 1) % NUM_VALUES;
 	if (count < NUM_VALUES) {
 		count++;
-	  }
+	}
 	return sum / count;
 }
 
+#ifdef INFLUX
 // **********************************************************************************************
 void influx_insert()
 {
@@ -272,27 +281,28 @@ void influx_insert()
         client.writePoint(sensorStatus);
     }
 }
+#endif
 
 // **********************************************************************************************
 void task_imu_read()
 {
     static long old_millis = 0;
     static IMUdata old_gyr;
-	IMUdata gyr;
+	  IMUdata gyr;
     if (old_millis + TASK_IMU_READ < millis()) {
-        old_millis = millis();
-		if (qmi.getDataReady()) {
-			if (qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
-				if ((abs(old_gyr.x - gyr.x) > 5)||(abs(old_gyr.y - gyr.y) > 5)||(abs(old_gyr.z - gyr.z) > 5)) {				// verbesserungswuerdig?
-					last_tft_backlight_on = millis();
-					old_gyr.x = gyr.x;
-					old_gyr.y = gyr.y;
-					old_gyr.z = gyr.z;
-					Serial.println("task_backlight_on()");
-					digitalWrite(TFT_BL, HIGH);
-				}
-			}
-		}
+      old_millis = millis();
+      if (qmi.getDataReady()) {
+        if (qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
+          if ((abs(old_gyr.x - gyr.x) > 5)||(abs(old_gyr.y - gyr.y) > 5)||(abs(old_gyr.z - gyr.z) > 5)) {				// verbesserungswuerdig?
+            last_tft_backlight_on = millis();
+            old_gyr.x = gyr.x;
+            old_gyr.y = gyr.y;
+            old_gyr.z = gyr.z;
+            Serial.println("task_backlight_on()");
+            digitalWrite(TFT_BL, HIGH);
+          }
+        }
+      }
     }
 }
 
@@ -300,9 +310,9 @@ void task_imu_read()
 void task_tft_backlight_off()
 {
     if (last_tft_backlight_on + TFT_BACKLIGHT_OFF_INTERVAL < millis()) {
-        last_tft_backlight_on = millis();
-		Serial.println("task_backlight_off()");
-        digitalWrite(TFT_BL, LOW);
+      last_tft_backlight_on = millis();
+  		Serial.println("task_backlight_off()");
+      digitalWrite(TFT_BL, LOW);
 	}
 }
 
@@ -313,10 +323,10 @@ int get_battery_percent(void)
     int percent;
     char buf[6];
     if (raw_voltage > 1620) {
-		percent = 100;
-	} else {
-		percent = map(raw_voltage, 1620, 1200, 100, 0);
-	}
+  		percent = 100;
+    } else {
+      percent = map(raw_voltage, 1620, 1200, 100, 0);
+    }
 	return percent;
 }
 
@@ -357,7 +367,7 @@ void task_display_second_circle()
 {
     int currentSecond = myTZ.second();
     int currentMs = myTZ.ms();
-	static float oldSecond_deg = 0;
+	  static float oldSecond_deg = 0;
     // circle second
     float currentSecond_deg = 360.0/60*currentSecond + 360.0/60*currentMs/1000;
     if ((currentSecond_deg < oldSecond_deg) && (currentSecond == 0)) {  // --> da scheint es ein Problem in ezTime zu geben!!! (Sekunde schaltet erst nach Millisekunde...)
@@ -378,7 +388,7 @@ void task_display_minute_circle()
 {
     int currentMinute = myTZ.minute();
     int currentSecond = myTZ.second();
-	static float oldMinute_deg = 0;
+	  static float oldMinute_deg = 0;
     // circle minute
     float currentMinute_deg = 360.0/60*currentMinute + 360.0/60*currentSecond/60;
     if (currentMinute_deg < oldMinute_deg) {
@@ -529,7 +539,7 @@ void setup(void)
     gfx->begin();
     gfx->setRotation(2);
     gfx->fillScreen(BACKGROUND);
-	// ...tft-backlight
+	  // ...tft-backlight
     pinMode(TFT_BL, OUTPUT);
     digitalWrite(TFT_BL, HIGH);
     last_tft_backlight_on = millis();
@@ -558,15 +568,18 @@ void setup(void)
     
     // synchronize date/time 
     display_setup_message(" --> sync. ezTime...");
+    display_setup_message(" --> next sync. in " + String(WIFI_SYNC_INTERVAL/1000) + "s...");
     waitForSync();
     Serial.println("UTC: " + UTC.dateTime());
     myTZ.setLocation(my_time_zone);
     Serial.println("MyTZ time: " + myTZ.dateTime("d-M-y H:i:s"));        
     
+    #ifdef INFLUX
     // Accurate time is necessary for certificate validation and writing in batches
     // Syncing progress and the time will be printed to Serial.
     display_setup_message(" --> sync. influxDB time...");
     timeSync(TZ_INFO, NTP_SERVER1, NTP_SERVER2);
+    #endif
 
 	// QMI8658
     display_setup_message(" --> init QMI8658...");
@@ -578,17 +591,19 @@ void setup(void)
     qmi.enableGyroscope();
     //qmi.enableAccelerometer();
         
+    #ifdef INFLUX
     // influxDB
     // Enable messages batching and retry buffer
     client.setWriteOptions(WriteOptions().writePrecision(WRITE_PRECISION).batchSize(MAX_BATCH_SIZE).bufferSize(WRITE_BUFFER_SIZE).flushInterval(INFLUX_FLUSH_INTERVAL));
-    
+    #endif
+
     // switch off wifi
     disableWiFi();
     last_wifi_connection = millis();
     connection_attempts = 0;
 
     display_setup_message("Ready!");
-	delay(1000);
+  	delay(1000);
 	
 	// clear display
     gfx->fillCircle(center, center, center, COLOR_CLEAR);
@@ -614,7 +629,9 @@ void loop()
     // ...other
     task_imu_read();
     task_tft_backlight_off();
+    #ifdef INFLUX
     influx_insert();
+    #endif
     enableWiFi();
     connectionWifi();
     // a little breather ;-)

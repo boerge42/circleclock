@@ -35,7 +35,7 @@ Bedeutung Kreise (von außen nach innen):
 * zyklisches Messen der Batteriespannung
 * zykliches Aktivierten der Wifi-Hardware etc.
     * Synchronistaion Zeit via NTP
-    * gesammelte Batteriespannungswerte in InfluxDB abspeichern
+    * gesammelte Batteriespannungswerte in InfluxDB abspeichern (wenn Define INFLUX gesetzt ist)
     * WiFi-Hardware ausschalten
 
 ---------
