@@ -55,27 +55,25 @@ Bedeutung Kreise (von außen nach innen):
 
 Aus verschiedenen Gründen, habe ich dieses Projekt nochmal aus der Versenkung geholt und modifiziert:
 
-* die Bibliothek [ezTime](https://github.com/ropg/eztime) ist irgendwie nicht besonders "cool" und teilweise auch fehlerhaft
+* die Bibliothek [ezTime](https://github.com/ropg/eztime) ist irgendwie nicht besonders "cool" und teilweise auch fehlerhaft,
 
-* ich habe ein wenig mit NTP-Clients/-Servern rumexperimentiert ([GPS-Clock-NTP-Server](https://github.com/boerge42/GPS-Clock-NTP-Server)) und hier entsprechend eingebaut
+* ich habe ein wenig mit NTP-Clients/-Servern rumexperimentiert ([GPS-Clock-NTP-Server](https://github.com/boerge42/GPS-Clock-NTP-Server)),
 
-* ...gleiches gilt auch in Bezug auf FreeRTOS ([FreeRTOS-NTP-Client](https://github.com/boerge42/FreeRTOS-NTP-Client))
+* ...und Gleiches gilt auch in Bezug auf FreeRTOS ([FreeRTOS-NTP-Client](https://github.com/boerge42/FreeRTOS-NTP-Client))
 
-Entstanden ist eine Version, welche:
+Entstanden ist eine [Version](https://github.com/boerge42/circleclock/tree/main/circle_clock_freertos), welche:
 
-+ keine Daten an eine InfluxDB übermittelt, weil die Batteriespannung nicht mehr gemessen wird (damit ist auch das Ein-/Ausschalten der Hintergrundbeleuchtung und des WLANs, in Abhängigkeit des Gyroscopes entfallen...)
++ keine Daten mehr an eine InfluxDB übermittelt, weil die Batteriespannung nicht mehr gemessen wird... (... und damit ist auch das Ein-/Ausschalten der Hintergrundbeleuchtung und des WLANs, in Abhängigkeit des Gyroscopes etc. entfallen...),
 
-+ die Vebindung zum WLAN via [WiFi-Manager](https://github.com/tzapu/WiFiManager) aufbaut
++ die Vebindung zum WLAN via [WiFi-Manager](https://github.com/tzapu/WiFiManager) aufbaut,
 
-+ insgesamt via FreeRTOS-Tasks arbeitet
++ insgesamt via FreeRTOS-Tasks arbeitet,
 
-+ die Ausgabe von Datum/Uhrzeit/Status etc. in Abhängigkeit der Ausrichtung des Displays  gestaltet (analog: [Hochzeitstagsuhr](https://github.com/boerge42/Hochzeitstaguhr))
++ die Ausgabe von Datum/Uhrzeit/Status etc. in Abhängigkeit der Ausrichtung des Displays  gestaltet (analog: [Hochzeitstagsuhr](https://github.com/boerge42/Hochzeitstaguhr)),
 
 + einen "Cheat-Mode" anbietet
 
 ...und in das übriggebliebene Gehäuse aus dem Projekt "[Hochzeitstagsuhr](https://github.com/boerge42/Hochzeitstaguhr)" eingebaut wurde.
-
-
 
 ---------
 
